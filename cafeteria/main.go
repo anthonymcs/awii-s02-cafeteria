@@ -1,42 +1,96 @@
 package main
 
-//Declaración de entidades
+import (
+	"fmt"
+)
 
 type Cliente struct {
 	ID      int
-	nombre  string
-	Carrera string
+	Nombre  string
+	Carrera string // "TI" o "SO"
 	Saldo   float64
 }
 
+// Producto representa algo que se vende en la cafetería: bebidas, snacks, almuerzos.
+// Tiene un stock — cuando alguien compra, se descuenta del stock disponible.
 type Producto struct {
 	ID        int
-	nombre    string
+	Nombre    string
 	Precio    float64
 	Stock     int
-	Categoria string
+	Categoria string // "bebida", "snack", "almuerzo"
 }
 
+// Pedido representa una transacción: un cliente compra una cantidad de un producto.
+// No contiene el cliente ni el producto completos — solo guarda sus IDs.
 type Pedido struct {
+	ID         int
 	ClienteID  int
 	ProductoID int
 	Cantidad   int
 	Total      float64
-	Fecha      string
+	Fecha      string // formato libre, ej: "2026-04-16"
 }
 
-func main() {
-	// Aqui se crean las listas
-	var clientes []Cliente
-	var productos []Producto
-	var pedidos []Pedido
+// =============================================================================
+// SECCIÓN 2 — FUNCIONES DE VISUALIZACIÓN
+// =============================================================================
 
-	// Agregamos 3 cliente y 4 productos al slice
-	clientes = append(clientes, Cliente{ID: 1, nombre: "Juan Perez", Carrera: "Ingeniería", Saldo: 100.0})
-	clientes = append(clientes, Cliente{ID: 2, nombre: "Maria Gomez", Carrera: "Medicina", Saldo: 150.0})
-	clientes = append(clientes, Cliente{ID: 3, nombre: "Carlos Ruiz", Carrera: "Arquitectura", Saldo: 200.0})
-	productos = append(productos, Producto{ID: 1, nombre: "Pan", Precio: 1.5, Stock: 10, Categoria: "Alimentos"})
-	productos = append(productos, Producto{ID: 2, nombre: "Leche", Precio: 2.0, Stock: 5, Categoria: "Alimentos"})
-	productos = append(productos, Producto{ID: 3, nombre: "Huevos", Precio: 3.0, Stock: 8, Categoria: "Alimentos"})
-	productos = append(productos, Producto{ID: 4, nombre: "Pan Dulce", Precio: 2.5, Stock: 12, Categoria: "Alimentos"})
+// ListarClientes imprime todos los clientes registrados en formato tabla.
+func ListarClientes(clientes []Cliente) {
+	fmt.Println("\n=== CLIENTES REGISTRADOS ===")
+	if len(clientes) == 0 {
+		fmt.Println("(no hay clientes registrados)")
+		return
+	}
+	fmt.Println("ID | Nombre               | Carrera | Saldo")
+	fmt.Println("---------------------------------------------")
+	for _, c := range clientes {
+		fmt.Printf("%-2d | %-20s | %-7s | $%.2f\n",
+			c.ID, c.Nombre, c.Carrera, c.Saldo)
+	}
+}
+
+// =============================================================================
+// SECCIÓN 3 — MAIN CON DATOS INICIALES
+// =============================================================================
+
+func main() {
+	// =========================================================================
+	// DATOS INICIALES (simulan lo que en el futuro vendrá de una base de datos)
+	// =========================================================================
+
+	// Slice de clientes (mínimo 3)
+	clientes := []Cliente{
+		{ID: 1, Nombre: "Ana López", Carrera: "TI", Saldo: 25.50},
+		{ID: 2, Nombre: "Carlos Méndez", Carrera: "SO", Saldo: 15.00},
+		{ID: 3, Nombre: "Diana Ruiz", Carrera: "TI", Saldo: 30.00},
+		{ID: 4, Nombre: "Esteban Gómez", Carrera: "SO", Saldo: 10.50},
+	}
+
+	// Slice de productos (mínimo 4)
+	productos := []Producto{
+		{ID: 1, Nombre: "Café Americano", Precio: 1.50, Stock: 20, Categoria: "bebida"},
+		{ID: 2, Nombre: "Sandwich de Pollo", Precio: 3.50, Stock: 10, Categoria: "snack"},
+		{ID: 3, Nombre: "Almuerzo Ejecutivo", Precio: 5.00, Stock: 8, Categoria: "almuerzo"},
+		{ID: 4, Nombre: "Jugo Natural", Precio: 1.00, Stock: 15, Categoria: "bebida"},
+		{ID: 5, Nombre: "Empanada de Queso", Precio: 1.00, Stock: 25, Categoria: "snack"},
+	}
+
+	// Slice de pedidos (vacío inicialmente)
+	pedidos := []Pedido{}
+
+	// =========================================================================
+	// PRUEBA DEL CHECKPOINT 1
+	// =========================================================================
+	fmt.Println("══════════════════════════════════════════")
+	fmt.Println("  MINI-CAFETERÍA DOÑA ROSA - Checkpoint 1")
+	fmt.Println("══════════════════════════════════════════")
+
+	// Probamos la función ListarClientes
+	ListarClientes(clientes)
+
+	// También podemos mostrar que los slices existen
+	fmt.Printf("\n✓ Datos cargados: %d clientes, %d productos, %d pedidos\n",
+		len(clientes), len(productos), len(pedidos))
 }
