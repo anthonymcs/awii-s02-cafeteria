@@ -1,96 +1,333 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 )
+
+// =====================================================
+// ENTIDADES
+// =====================================================
 
 type Cliente struct {
 	ID      int
 	Nombre  string
-	Carrera string // "TI" o "SO"
+	Carrera string
 	Saldo   float64
 }
 
-// Producto representa algo que se vende en la cafetería: bebidas, snacks, almuerzos.
-// Tiene un stock — cuando alguien compra, se descuenta del stock disponible.
 type Producto struct {
 	ID        int
 	Nombre    string
 	Precio    float64
 	Stock     int
-	Categoria string // "bebida", "snack", "almuerzo"
+	Categoria string
 }
 
-// Pedido representa una transacción: un cliente compra una cantidad de un producto.
-// No contiene el cliente ni el producto completos — solo guarda sus IDs.
 type Pedido struct {
 	ID         int
 	ClienteID  int
 	ProductoID int
 	Cantidad   int
 	Total      float64
-	Fecha      string // formato libre, ej: "2026-04-16"
+	Fecha      string
 }
 
-// =============================================================================
-// SECCIÓN 2 — FUNCIONES DE VISUALIZACIÓN
-// =============================================================================
+// =====================================================
+// CLIENTES
+// =====================================================
 
-// ListarClientes imprime todos los clientes registrados en formato tabla.
 func ListarClientes(clientes []Cliente) {
-	fmt.Println("\n=== CLIENTES REGISTRADOS ===")
 	if len(clientes) == 0 {
-		fmt.Println("(no hay clientes registrados)")
+		fmt.Println("(no hay clientes)")
 		return
 	}
-	fmt.Println("ID | Nombre               | Carrera | Saldo")
-	fmt.Println("---------------------------------------------")
+	fmt.Println("\n--- CLIENTES ---")
 	for _, c := range clientes {
-		fmt.Printf("%-2d | %-20s | %-7s | $%.2f\n",
+		fmt.Printf("[%d] %-20s | %-3s | $%.2f\n",
 			c.ID, c.Nombre, c.Carrera, c.Saldo)
 	}
 }
 
-// =============================================================================
-// SECCIÓN 3 — MAIN CON DATOS INICIALES
-// =============================================================================
+func AgregarCliente(clientes []Cliente, nombre, carrera string, saldo float64) []Cliente {
+	nuevo := Cliente{
+		ID:      len(clientes) + 1,
+		Nombre:  nombre,
+		Carrera: carrera,
+		Saldo:   saldo,
+	}
+	return append(clientes, nuevo)
+}
+
+func BuscarClientePorID(clientes []Cliente, id int) int {
+	for i, c := range clientes {
+		if c.ID == id {
+			return i
+		}
+	}
+	return -1
+}
+
+func EliminarCliente(clientes []Cliente, id int) []Cliente {
+	idx := BuscarClientePorID(clientes, id)
+	if idx == -1 {
+		fmt.Println("Cliente no encontrado")
+		return clientes
+	}
+	return append(clientes[:idx], clientes[idx+1:]...)
+}
+
+// =====================================================
+// PRODUCTOS
+// =====================================================
+
+func ListarProductos(productos []Producto) {
+	if len(productos) == 0 {
+		fmt.Println("(no hay productos)")
+		return
+	}
+	fmt.Println("\n--- PRODUCTOS ---")
+	for _, p := range productos {
+		fmt.Printf("[%d] %-20s | $%.2f | %d\n",
+			p.ID, p.Nombre, p.Precio, p.Stock)
+	}
+}
+
+func AgregarProducto(productos []Producto, nuevo Producto) []Producto {
+	return append(productos, nuevo)
+}
+
+func BuscarProductoPorID(productos []Producto, id int) int {
+	for i, p := range productos {
+		if p.ID == id {
+			return i
+		}
+	}
+	return -1
+}
+
+func EliminarProducto(productos []Producto, id int) []Producto {
+	idx := BuscarProductoPorID(productos, id)
+	if idx == -1 {
+		fmt.Println("Producto no encontrado")
+		return productos
+	}
+	return append(productos[:idx], productos[idx+1:]...)
+}
+
+// =====================================================
+// CHECKPOINT 3
+// =====================================================
+
+func DescontarSaldo(cliente *Cliente, monto float64) error {
+	if monto < 0 {
+		return fmt.Errorf("monto inválido")
+	}
+	if cliente.Saldo < monto {
+		return fmt.Errorf("saldo insuficiente")
+	}
+	cliente.Saldo -= monto
+	return nil
+}
+
+func DescontarStock(producto *Producto, cantidad int) error {
+	if cantidad <= 0 {
+		return fmt.Errorf("cantidad inválida")
+	}
+	if producto.Stock < cantidad {
+		return fmt.Errorf("stock insuficiente")
+	}
+	producto.Stock -= cantidad
+	return nil
+}
+
+func RegistrarPedido(clientes []Cliente, productos []Producto, pedidos []Pedido,
+	clienteID int, productoID int, cantidad int, fecha string) ([]Pedido, error) {
+
+	idxC := BuscarClientePorID(clientes, clienteID)
+	if idxC == -1 {
+		return pedidos, fmt.Errorf("cliente no encontrado")
+	}
+
+	idxP := BuscarProductoPorID(productos, productoID)
+	if idxP == -1 {
+		return pedidos, fmt.Errorf("producto no encontrado")
+	}
+
+	total := productos[idxP].Precio * float64(cantidad)
+
+	err := DescontarStock(&productos[idxP], cantidad)
+	if err != nil {
+		return pedidos, err
+	}
+
+	err = DescontarSaldo(&clientes[idxC], total)
+	if err != nil {
+		return pedidos, err
+	}
+
+	nuevo := Pedido{
+		ID:         len(pedidos) + 1,
+		ClienteID:  clienteID,
+		ProductoID: productoID,
+		Cantidad:   cantidad,
+		Total:      total,
+		Fecha:      fecha,
+	}
+
+	pedidos = append(pedidos, nuevo)
+	return pedidos, nil
+}
+
+// =====================================================
+// REPORTE
+// =====================================================
+
+func PedidosDeCliente(pedidos []Pedido, clientes []Cliente, productos []Producto, clienteID int) {
+	idx := BuscarClientePorID(clientes, clienteID)
+	if idx == -1 {
+		fmt.Println("Cliente no encontrado")
+		return
+	}
+
+	fmt.Printf("\n--- PEDIDOS DE %s ---\n", clientes[idx].Nombre)
+
+	total := 0.0
+	encontrado := false
+
+	for _, p := range pedidos {
+		if p.ClienteID == clienteID {
+			encontrado = true
+			idxP := BuscarProductoPorID(productos, p.ProductoID)
+			nombreProducto := productos[idxP].Nombre
+
+			fmt.Printf("Pedido[%d] %s x%d | $%.2f\n",
+				p.ID, nombreProducto, p.Cantidad, p.Total)
+
+			total += p.Total
+		}
+	}
+
+	if !encontrado {
+		fmt.Println("(sin pedidos)")
+		return
+	}
+
+	fmt.Printf("Total gastado: $%.2f\n", total)
+}
+
+// =====================================================
+// UTILIDADES CLI
+// =====================================================
+
+func leerLinea(r *bufio.Reader) string {
+	texto, _ := r.ReadString('\n')
+	return strings.TrimSpace(texto)
+}
+
+func leerInt(r *bufio.Reader, msg string) int {
+	fmt.Print(msg)
+	valor, _ := strconv.Atoi(leerLinea(r))
+	return valor
+}
+
+func leerFloat(r *bufio.Reader, msg string) float64 {
+	fmt.Print(msg)
+	valor, _ := strconv.ParseFloat(leerLinea(r), 64)
+	return valor
+}
+
+func menu() {
+	fmt.Println("\n===== MINI CAFETERÍA =====")
+	fmt.Println("1. Listar clientes")
+	fmt.Println("2. Listar productos")
+	fmt.Println("3. Agregar cliente")
+	fmt.Println("4. Agregar producto")
+	fmt.Println("5. Registrar pedido")
+	fmt.Println("6. Ver pedidos de cliente")
+	fmt.Println("0. Salir")
+}
+
+// =====================================================
+// MAIN
+// =====================================================
 
 func main() {
-	// =========================================================================
-	// DATOS INICIALES (simulan lo que en el futuro vendrá de una base de datos)
-	// =========================================================================
 
-	// Slice de clientes (mínimo 3)
 	clientes := []Cliente{
-		{ID: 1, Nombre: "Ana López", Carrera: "TI", Saldo: 25.50},
-		{ID: 2, Nombre: "Carlos Méndez", Carrera: "SO", Saldo: 15.00},
-		{ID: 3, Nombre: "Diana Ruiz", Carrera: "TI", Saldo: 30.00},
-		{ID: 4, Nombre: "Esteban Gómez", Carrera: "SO", Saldo: 10.50},
+		{1, "Ana López", "TI", 25.50},
+		{2, "Carlos Méndez", "SO", 15.00},
 	}
 
-	// Slice de productos (mínimo 4)
 	productos := []Producto{
-		{ID: 1, Nombre: "Café Americano", Precio: 1.50, Stock: 20, Categoria: "bebida"},
-		{ID: 2, Nombre: "Sandwich de Pollo", Precio: 3.50, Stock: 10, Categoria: "snack"},
-		{ID: 3, Nombre: "Almuerzo Ejecutivo", Precio: 5.00, Stock: 8, Categoria: "almuerzo"},
-		{ID: 4, Nombre: "Jugo Natural", Precio: 1.00, Stock: 15, Categoria: "bebida"},
-		{ID: 5, Nombre: "Empanada de Queso", Precio: 1.00, Stock: 25, Categoria: "snack"},
+		{1, "Café", 1.50, 20, "bebida"},
+		{2, "Sandwich", 3.50, 10, "snack"},
 	}
 
-	// Slice de pedidos (vacío inicialmente)
 	pedidos := []Pedido{}
 
-	// =========================================================================
-	// PRUEBA DEL CHECKPOINT 1
-	// =========================================================================
-	fmt.Println("══════════════════════════════════════════")
-	fmt.Println("  MINI-CAFETERÍA DOÑA ROSA - Checkpoint 1")
-	fmt.Println("══════════════════════════════════════════")
+	reader := bufio.NewReader(os.Stdin)
 
-	// Probamos la función ListarClientes
-	ListarClientes(clientes)
+	for {
+		menu()
+		op := leerInt(reader, "Opción: ")
 
-	// También podemos mostrar que los slices existen
-	fmt.Printf("\n✓ Datos cargados: %d clientes, %d productos, %d pedidos\n",
-		len(clientes), len(productos), len(pedidos))
+		switch op {
+
+		case 1:
+			ListarClientes(clientes)
+
+		case 2:
+			ListarProductos(productos)
+
+		case 3:
+			nombre := leerLinea(reader)
+			carrera := leerLinea(reader)
+			saldo := leerFloat(reader, "Saldo: ")
+			clientes = AgregarCliente(clientes, nombre, carrera, saldo)
+			fmt.Println("✓ Cliente agregado")
+
+		case 4:
+			nombre := leerLinea(reader)
+			precio := leerFloat(reader, "Precio: ")
+			stock := leerInt(reader, "Stock: ")
+			categoria := leerLinea(reader)
+
+			productos = AgregarProducto(productos, Producto{
+				ID:        len(productos) + 1,
+				Nombre:    nombre,
+				Precio:    precio,
+				Stock:     stock,
+				Categoria: categoria,
+			})
+
+			fmt.Println("✓ Producto agregado")
+
+		case 5:
+			idC := leerInt(reader, "ID Cliente: ")
+			idP := leerInt(reader, "ID Producto: ")
+			cant := leerInt(reader, "Cantidad: ")
+			fecha := leerLinea(reader)
+
+			var err error
+			pedidos, err = RegistrarPedido(clientes, productos, pedidos, idC, idP, cant, fecha)
+
+			if err != nil {
+				fmt.Println("✗ Error:", err)
+			} else {
+				fmt.Println("✓ Pedido registrado")
+			}
+
+		case 6:
+			id := leerInt(reader, "ID Cliente: ")
+			PedidosDeCliente(pedidos, clientes, productos, id)
+
+		case 0:
+			fmt.Println("Saliendo...")
+			return
+		}
+	}
 }
